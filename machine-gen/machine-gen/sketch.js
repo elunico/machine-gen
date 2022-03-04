@@ -9,11 +9,13 @@ const padding = 150;
 const INITIAL_STATE = Symbol('INITIAL_STATE');
 const SELECTED_START_STATE = Symbol('SELECTED_START_STATE');
 const SELECTED_END_STATE = Symbol('SELECTED_END_STATE');
+const NO_TEXT_STATE = Symbol('NO_TEXT_STATE');
 
 const statuses = {
   [INITIAL_STATE]: 'Click a state to select it as the start state',
   [SELECTED_START_STATE]: 'Click a state to select it as the end state',
   [SELECTED_END_STATE]: 'Press enter to confirm the transition or escape to cancel',
+  [NO_TEXT_STATE]: ''
 };
 
 let currentState = INITIAL_STATE;
@@ -29,14 +31,17 @@ function renderTemplate(template, data) {
   });
 }
 
-function drawArrow(base, vec, fillC, strokeC, weight, arrowSize = 14) {
+function drawArrow(base, vec, fillC, strokeC, weight, arrowSize = 20) {
   push();
   let diff = p5.Vector.sub(vec, base);
-  stroke(strokeC);
-  strokeWeight(weight);
-  fill(fillC);
   translate(base.x, base.y);
+  strokeWeight(weight);
+  stroke(fillC);
   line(0, 0, vec.x - base.x, vec.y - base.y);
+  stroke(strokeC);
+  strokeWeight(weight / 2);
+  line(0, 0, vec.x - base.x, vec.y - base.y);
+  fill(fillC);
   rotate(diff.heading());
   translate(diff.mag() - arrowSize - stateSize / 2, 0);
   triangle(0, arrowSize / 2, 0, -arrowSize / 2, arrowSize, 0);
@@ -46,10 +51,9 @@ function drawArrow(base, vec, fillC, strokeC, weight, arrowSize = 14) {
 
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
-  // states = [new State('A'), new State('B'), new State('C'), new State('D')];
+  createCanvas(min(windowHeight, windowWidth), min(windowHeight, windowWidth));
   states = [];
-  let texts = prompt("Enter the states you want to draw separated by commas").split(/[, ]+/g).map(s => s.toLowerCase());
+  let texts = prompt("Enter the states you want to draw separated by commas").split(/[, ]+/g).map(s => s.toLowerCase().replace(/[^a-z0-9_]/g, ''));
   for (let state of texts) {
     states.push(new State(state));
   }
@@ -69,44 +73,69 @@ function mousePressed() {
   }
 }
 
+function clearState() {
+  currentState = INITIAL_STATE;
+  selectedEndState = null;
+  selectedStartState = null;
+}
+
+function generateClassCode() {
+  let className = prompt("Enter the name of the class");
+  let classBody = renderTemplate(classTemplate, {
+    INIT_STATE: states.filter(i => i.isInitial)[0]?.name,
+    CLASS_NAME: className
+  });
+
+  for (let state of states) {
+    classBody += '\n' + renderTemplate(methodTemplate, {
+      STATE_STRINGS: state.transitions.map(v => `"${v.name}"`).join(', '),
+      METHOD_NAME: state.name
+    });
+  }
+
+  return {
+    className, classBody
+  };
+}
+
+function downloadText(filename, content) {
+  let element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+  element.setAttribute('download', `${filename}`);
+  element.setAttribute('style', 'display: none');
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+}
+
 function keyPressed() {
   if (key == 'Enter') {
     if (selectedEndState && selectedStartState) {
-      currentState = INITIAL_STATE;
       selectedStartState.transitions.push(selectedEndState);
-      selectedEndState = null;
-      selectedStartState = null;
+      clearState();
     }
   } else if (key == 'Escape') {
-    currentState = INITIAL_STATE;
-    selectedStartState = null;
-    selectedEndState = null;
+    clearState();
   } else if (key == 'e') {
+    noLoop();
+    let oldState = currentState;
+    currentState = NO_TEXT_STATE;
+    redraw();
     save('sketch.png');
+    currentState = oldState;
+    loop();
   } else if (key == ' ') {
-    if (selectedStartState)
+    if (selectedStartState) {
       selectedStartState.isInitial = !selectedStartState.isInitial;
+    }
   } else if (key == 'p') {
-    let className = prompt("Enter the name of the class");
-    let classBody = renderTemplate(classTemplate, {
-      INIT_STATE: states.filter(i => i.isInitial)[0]?.name,
-      CLASS_NAME: className
-    });
-
-    for (let state of states) {
-      classBody += '\n' + renderTemplate(methodTemplate, {
-        STATE_STRINGS: state.transitions.map(v => `"${v.name}"`).join(', '),
-        METHOD_NAME: state.name
-      });
+    if (!states.some(state => state.isInitial)) {
+      alert("No initial state selected. Click a state and press 'SPACE' to designate it as the initial state.");
+      return;
     }
 
-    let element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(classBody));
-    element.setAttribute('download', `${className}.py`);
-    element.setAttribute('style', 'display: none');
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    let { className, classBody } = generateClassCode();
+    downloadText(`${className}.py`, classBody);
   }
 }
 
@@ -116,7 +145,7 @@ function draw() {
   let da = TWO_PI / states.length;
   for (let state of states) {
     for (let transition of state.transitions) {
-      drawArrow(state.location, transition.location, color(255), color(255), 4);
+      drawArrow(state.location, transition.location, color(0, 255, 255), color(0), 4);
     }
   }
   for (let state of states) {
@@ -144,19 +173,14 @@ function draw() {
     stroke(255);
     textSize(24);
     text(state.name, v.x, v.y);
-
   }
-
 
   fill(255);
   stroke(0);
 
-  text(statuses[currentState], width / 2, 50);
-  text("Press SPACE to designate an initial state", width / 2, height - 70);
-
-  text("Press 'e' to save as a png. Press 'p' to generate code", width / 2, height - 40);
-
-  // let v = createVector(0, 0);
-  // drawArrow(createVector(width / 2, height / 2), createVector(mouseX, mouseY), color(255));
-
+  if (currentState != NO_TEXT_STATE) {
+    text(statuses[currentState], width / 2, 50);
+    text("Press SPACE to designate an initial state", width / 2, height - 70);
+    text("Press 'e' to save as a png. Press 'p' to generate code", width / 2, height - 40);
+  }
 }
