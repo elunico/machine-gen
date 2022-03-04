@@ -29,12 +29,12 @@ function renderTemplate(template, data) {
   });
 }
 
-function drawArrow(base, vec, myColor, arrowSize = 14) {
+function drawArrow(base, vec, fillC, strokeC, weight, arrowSize = 14) {
   push();
   let diff = p5.Vector.sub(vec, base);
-  stroke(myColor);
-  strokeWeight(3);
-  fill(myColor);
+  stroke(strokeC);
+  strokeWeight(weight);
+  fill(fillC);
   translate(base.x, base.y);
   line(0, 0, vec.x - base.x, vec.y - base.y);
   rotate(diff.heading());
@@ -47,11 +47,12 @@ function drawArrow(base, vec, myColor, arrowSize = 14) {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  states = [new State('A'), new State('B'), new State('C'), new State('D')];
-  // let texts = prompt("Enter the states you want to draw separated by commas").split(/[, ]+/g).map(s => s.toLowerCase());
-  // for (let state of texts) {
-  // states.push(new State(state));
-  // }
+  // states = [new State('A'), new State('B'), new State('C'), new State('D')];
+  states = [];
+  let texts = prompt("Enter the states you want to draw separated by commas").split(/[, ]+/g).map(s => s.toLowerCase());
+  for (let state of texts) {
+    states.push(new State(state));
+  }
 }
 
 function mousePressed() {
@@ -84,7 +85,7 @@ function keyPressed() {
     save('sketch.png');
   } else if (key == ' ') {
     if (selectedStartState)
-      selectedStartState.isInitial = true;
+      selectedStartState.isInitial = !selectedStartState.isInitial;
   } else if (key == 'p') {
     let className = prompt("Enter the name of the class");
     let classBody = renderTemplate(classTemplate, {
@@ -115,9 +116,7 @@ function draw() {
   let da = TWO_PI / states.length;
   for (let state of states) {
     for (let transition of state.transitions) {
-      stroke(255);
-      strokeWeight(3);
-      drawArrow(state.location, transition.location, color(255));
+      drawArrow(state.location, transition.location, color(255), color(255), 4);
     }
   }
   for (let state of states) {
