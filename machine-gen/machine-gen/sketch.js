@@ -31,22 +31,32 @@ function renderTemplate(template, data) {
   });
 }
 
-function drawArrow(base, vec, fillC, strokeC, weight, arrowSize = 20) {
+function drawArrowBody(base, vec, fillC, strokeC, weight, arrowSize = 30) {
   push();
   let diff = p5.Vector.sub(vec, base);
   translate(base.x, base.y);
   strokeWeight(weight);
-  stroke(fillC);
-  line(0, 0, vec.x - base.x, vec.y - base.y);
   stroke(strokeC);
+  line(0, 0, vec.x - base.x, vec.y - base.y);
+  stroke(fillC);
   strokeWeight(weight / 2);
   line(0, 0, vec.x - base.x, vec.y - base.y);
+  pop();
+}
+
+function drawArrowHead(base, vec, fillC, strokeC, weight, arrowSize = 30) {
+  push();
+  let diff = p5.Vector.sub(vec, base);
+  translate(base.x, base.y);
+  stroke(strokeC);
+  strokeWeight(weight / 2);
   fill(fillC);
   rotate(diff.heading());
   translate(diff.mag() - arrowSize - stateSize / 2, 0);
   triangle(0, arrowSize / 2, 0, -arrowSize / 2, arrowSize, 0);
   pop();
 }
+
 
 
 
@@ -145,7 +155,12 @@ function draw() {
   let da = TWO_PI / states.length;
   for (let state of states) {
     for (let transition of state.transitions) {
-      drawArrow(state.location, transition.location, color(0, 255, 255), color(0), 4);
+      drawArrowBody(state.location, transition.location, color(0), color(255), 8);
+    }
+  }
+  for (let state of states) {
+    for (let transition of state.transitions) {
+      drawArrowHead(state.location, transition.location, color(0), color(255), 8);
     }
   }
   for (let state of states) {
